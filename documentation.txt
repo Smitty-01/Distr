@@ -1,0 +1,11 @@
+Complete documentation has been generated in:
+1. server.go (Full line-by-line in-code explanations)
+2. DOCUMENTATION.md (Comprehensive guide, diagrams, lifecycle traces, and testing cheat sheet)
+
+Key Takeaways:
+1. http.NewServeMux(): The router that matches methods and paths (Go 1.22+ syntax like "GET /transactions/{id}").
+2. http.ResponseWriter & *http.Request: Used by handlers to read request data and write response headers/body.
+3. json.NewDecoder(r.Body).Decode(&t): Parses JSON body into a Go struct.
+4. json.NewEncoder(w).Encode(data): Converts Go struct/slice into JSON and streams it back to client.
+5. Path parameters: Accessed via r.PathValue("id").
+6. Pointers (*t and &t): Avoid copying struct data in memory.
