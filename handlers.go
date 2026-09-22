@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -34,16 +35,35 @@ func addTransactions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid transaction", http.StatusBadRequest)
 		return
 	}
-
-	if t.Amount < 5000 {
-		t.Status = false
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(t)
+	dailyLimit, spentToday, txLimit, err := getUserRules(t.UserID)
+	if err != nil {
+		http.Error(w, "user rules not found in Redis", http.StatusBadRequest)
 		return
 	}
 
-	err := storage.CreateTransaction(&t)
+	approved := decideTransaction(float64(t.Amount), dailyLimit, spentToday, txLimit)
+	if !approved {
+		t.Status = false
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(t)
+		return // Return rejected immediately
+	}
+
+	// if t.Amount < 5000 {
+	// 	t.Status = false
+	// 	w.Header().Set("Content-Type", "application/json")
+	// 	json.NewEncoder(w).Encode(t)
+	// 	return
+	// }
+
+	t.Status = true
+	rdb.IncrByFloat(ctx, fmt.Sprintf("user:%d:spent_today", t.UserID), float64(t.Amount))
 	if err != nil {
+		http.Error(w, "failed to update transaction", http.StatusInternalServerError)
+	}
+	err = storage.CreateTransaction(&t)
+	if err != nil {
+		log.Println("Database CreateTransaction Error:", err)
 		http.Error(w, "failed to create transaction", http.StatusInternalServerError)
 		return
 	}

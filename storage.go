@@ -21,8 +21,8 @@ func NewStorage(db *sqlx.DB) *Storage {
 func (s *Storage) CreateTransaction(t *transaction) error {
 
 	query := `
-		INSERT INTO transactions (name, amount, status)
-		VALUES ($1, $2, $3)
+		INSERT INTO transactions (user_id, name, amount, status)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id
 	`
 	// // func (db *DB) Get(dest interface{}, query string, args ...interface{}) error {
@@ -32,6 +32,7 @@ func (s *Storage) CreateTransaction(t *transaction) error {
 	err := s.db.Get(
 		&t.ID,
 		query,
+		t.UserID,
 		t.Name,
 		t.Amount, // give value from user to sql
 		t.Status,
