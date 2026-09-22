@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/redis/go-redis/v9"
 )
 
 var storage *Storage
+var rdb *redis.Client
 
 func main() {
 
@@ -22,6 +25,13 @@ func main() {
 		log.Fatal(err)
 	} else {
 		log.Println("Successfuly connected")
+	}
+	// redis client
+	rdb = NewRedis()
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatal("Redis connection failed:", err)
+	} else {
+		log.Println("Successfully connected to Redis")
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /", Homehandler)

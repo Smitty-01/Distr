@@ -6,6 +6,7 @@ type server struct {
 
 type transaction struct {
 	ID     int    `json:"id"`
+	UserID string `json:"user_id"`
 	Name   string `json:"name"`
 	Amount int    `json:"amount"`
 	Status bool   `json:"status"`
