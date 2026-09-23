@@ -11,3 +11,8 @@ type transaction struct {
 	Amount int    `json:"amount"`
 	Status bool   `json:"status"`
 }
+type UserRules struct {
+	UserID           int     `db:"user_id"`
+	DailyLimit       float64 `db:"daily_limit"`
+	TransactionLimit float64 `db:"transaction_limit"`
+}

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/redis/go-redis/v9"
 )
 
 func Homehandler(w http.ResponseWriter, r *http.Request) {
@@ -35,9 +37,46 @@ func addTransactions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid transaction", http.StatusBadRequest)
 		return
 	}
-	dailyLimit, spentToday, txLimit, err := getUserRules(t.UserID)
-	if err != nil {
-		http.Error(w, "user rules not found in Redis", http.StatusBadRequest)
+	dailyLimit, spentToday, txLimit, err := getUserFromRules(t.UserID)
+
+	if err == redis.Nil {
+
+		// Redis doesn't have this user.
+		// Get the user's rules from PostgreSQL.
+
+		rules, err := storage.getUserRules(t.UserID)
+		if err != nil {
+			http.Error(w, "failed to get user rules", http.StatusInternalServerError)
+			return
+		}
+
+		// Calculate current spending from PostgreSQL.
+		spentToday, err = storage.getSpentToday(t.UserID)
+		if err != nil {
+			http.Error(w, "failed to get spent today", http.StatusInternalServerError)
+			return
+		}
+
+		dailyLimit = rules.DailyLimit
+		txLimit = rules.TransactionLimit
+
+		// Now populate Redis.
+		err = setUserRules(
+			t.UserID,
+			dailyLimit,
+			spentToday,
+			txLimit,
+		)
+
+		if err != nil {
+			http.Error(w, "failed to cache user rules", http.StatusInternalServerError)
+			return
+		}
+
+	} else if err != nil {
+
+		// Some actual Redis error occurred.
+		http.Error(w, "redis error", http.StatusInternalServerError)
 		return
 	}
 
@@ -57,9 +96,10 @@ func addTransactions(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	t.Status = true
-	rdb.IncrByFloat(ctx, fmt.Sprintf("user:%d:spent_today", t.UserID), float64(t.Amount))
-	if err != nil {
-		http.Error(w, "failed to update transaction", http.StatusInternalServerError)
+	if err := rdb.IncrByFloat(ctx, fmt.Sprintf("user:%d:spent_today", t.UserID), float64(t.Amount)).Err(); err != nil {
+		log.Println("Redis Incr Error:", err)
+		http.Error(w, "failed to update transaction in redis", http.StatusInternalServerError)
+		return
 	}
 	err = storage.CreateTransaction(&t)
 	if err != nil {

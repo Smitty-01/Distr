@@ -67,3 +67,43 @@ func (s *Storage) GetTransactionsById(id int) (transaction, error) {
 	return t, nil
 
 }
+func (s *Storage) getUserRules(UserID int) (UserRules, error) {
+	var rules UserRules
+	query := `
+        SELECT user_id, daily_limit, transaction_limit
+        FROM user_rules
+        WHERE user_id = $1
+    `
+	err := s.db.Get(&rules, query, UserID)
+
+	if err != nil {
+		return rules, err
+	}
+
+	return rules, nil
+
+}
+
+func (s *Storage) getSpentToday(userID int) (float64, error) {
+	var spentToday float64
+
+	query := `
+		SELECT COALESCE(SUM(amount), 0)
+		FROM transactions
+		WHERE user_id = $1
+		AND status = true
+		AND created_at >= CURRENT_DATE
+	`
+
+	err := s.db.Get(
+		&spentToday,
+		query,
+		userID,
+	)
+
+	if err != nil {
+		return 0, err
+	}
+
+	return spentToday, nil
+}
