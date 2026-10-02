@@ -16,7 +16,7 @@ func Homehandler(w http.ResponseWriter, r *http.Request) {
 func TransactionHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
-	transactions, err := storage.GetTransactions()
+	transactions, err := storage.GetTransactions() // calls
 	if err != nil {
 		http.Error(w, "failed to create transaction", http.StatusInternalServerError)
 		return
@@ -28,10 +28,13 @@ func TransactionHandler(w http.ResponseWriter, r *http.Request) {
 func addTransactions(w http.ResponseWriter, r *http.Request) {
 	var t transaction
 
-	if err := json.NewDecoder(r.Body).Decode(&t); err != nil {
+	err := json.NewDecoder(r.Body).Decode(&t)
+	if err != nil {
+		log.Println("JSON DECODE ERROR:", err)
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
+	log.Printf("TRANSACTION RECEIVED: %+v\n", t)
 
 	if !transactionValidator(&t) {
 		http.Error(w, "invalid transaction", http.StatusBadRequest)
@@ -101,13 +104,22 @@ func addTransactions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to update transaction in redis", http.StatusInternalServerError)
 		return
 	}
-	err = storage.CreateTransaction(&t)
-	if err != nil {
-		log.Println("Database CreateTransaction Error:", err)
-		http.Error(w, "failed to create transaction", http.StatusInternalServerError)
+	// we replace creaTransaction with publish transaction movinfg from synchronous to asynchronous
+	// err = storage.CreateTransaction(&t)
+	// if err != nil {
+	// 	log.Println("Database CreateTransaction Error:", err)
+	// 	http.Error(w, "failed to create transaction", http.StatusInternalServerError)
+	// 	return
+	// }
+
+	// w.Header().Set("Content-Type", "application/json")
+	// json.NewEncoder(w).Encode(t)
+
+	if err = PublishTransaction(&t); err != nil {
+		log.Println("Kafka Publish Error:", err)
+		http.Error(w, "failed to queue transaction", http.StatusInternalServerError)
 		return
 	}
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(t)
 }

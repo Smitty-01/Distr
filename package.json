@@ -1,0 +1,24 @@
+{
+  "name": "iamaloser",
+  "version": "1.0.0",
+  "description": "",
+  "main": "loadtest.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Smitty-01/Distr.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Smitty-01/Distr/issues"
+  },
+  "homepage": "https://github.com/Smitty-01/Distr#readme",
+  "dependencies": {
+    "autocannon": "^8.0.0"
+  }
+}

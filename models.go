@@ -16,3 +16,6 @@ type UserRules struct {
 	DailyLimit       float64 `db:"daily_limit"`
 	TransactionLimit float64 `db:"transaction_limit"`
 }
+
+// spenttoday does not make sense redis cache should have acc balance as well
+// then we check if amount < balance and send errors
