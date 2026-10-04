@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -34,6 +36,12 @@ func addTransactions(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
+
+	// Generate unique idempotency reference if not provided by client
+	if t.Reference == "" {
+		t.Reference = fmt.Sprintf("txn_%d_%d", t.UserID, time.Now().UnixNano())
+	}
+
 	log.Printf("TRANSACTION RECEIVED: %+v\n", t)
 
 	if !transactionValidator(&t) {
@@ -86,37 +94,25 @@ func addTransactions(w http.ResponseWriter, r *http.Request) {
 	approved := decideTransaction(float64(t.Amount), dailyLimit, spentToday, txLimit)
 	if !approved {
 		t.Status = false
+		transactionDecisionsTotal.WithLabelValues("rejected").Inc()
+		slog.Warn("Transaction rejected", "user_id", t.UserID, "amount", t.Amount, "reference", t.Reference)
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(t)
 		return // Return rejected immediately
 	}
 
-	// if t.Amount < 5000 {
-	// 	t.Status = false
-	// 	w.Header().Set("Content-Type", "application/json")
-	// 	json.NewEncoder(w).Encode(t)
-	// 	return
-	// }
-
 	t.Status = true
+	transactionDecisionsTotal.WithLabelValues("approved").Inc()
+	slog.Info("Transaction approved", "user_id", t.UserID, "amount", t.Amount, "reference", t.Reference)
+
 	if err := rdb.IncrByFloat(ctx, fmt.Sprintf("user:%d:spent_today", t.UserID), float64(t.Amount)).Err(); err != nil {
-		log.Println("Redis Incr Error:", err)
+		slog.Error("Redis Incr Error", "error", err)
 		http.Error(w, "failed to update transaction in redis", http.StatusInternalServerError)
 		return
 	}
-	// we replace creaTransaction with publish transaction movinfg from synchronous to asynchronous
-	// err = storage.CreateTransaction(&t)
-	// if err != nil {
-	// 	log.Println("Database CreateTransaction Error:", err)
-	// 	http.Error(w, "failed to create transaction", http.StatusInternalServerError)
-	// 	return
-	// }
-
-	// w.Header().Set("Content-Type", "application/json")
-	// json.NewEncoder(w).Encode(t)
 
 	if err = PublishTransaction(&t); err != nil {
-		log.Println("Kafka Publish Error:", err)
+		slog.Error("Kafka Publish Error", "error", err)
 		http.Error(w, "failed to queue transaction", http.StatusInternalServerError)
 		return
 	}

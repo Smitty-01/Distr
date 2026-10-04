@@ -1,6 +1,10 @@
 package main
 
-import "github.com/jmoiron/sqlx"
+import (
+	"database/sql"
+
+	"github.com/jmoiron/sqlx"
+)
 
 func transactionValidator(t *transaction) bool {
 	if t.Name == "" || t.Amount <= 0 {
@@ -21,23 +25,24 @@ func NewStorage(db *sqlx.DB) *Storage {
 func (s *Storage) CreateTransaction(t *transaction) error {
 
 	query := `
-		INSERT INTO transactions (user_id, name, amount, status)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO transactions (reference, user_id, name, amount, status)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (reference) DO NOTHING
 		RETURNING id
 	`
-	// // func (db *DB) Get(dest interface{}, query string, args ...interface{}) error {
-	// 	return Get(db, dest, query, args...)
-	// }
-	// whne the query runs return the result and ut in t.ID
 	err := s.db.Get(
 		&t.ID,
 		query,
+		t.Reference,
 		t.UserID,
 		t.Name,
-		t.Amount, // give value from user to sql
+		t.Amount,
 		t.Status,
 	)
-
+	if err == sql.ErrNoRows {
+		// Duplicate event skipped safely
+		return nil
+	}
 	return err
 }
 func (s *Storage) GetTransactions() ([]transaction, error) {

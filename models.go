@@ -5,11 +5,12 @@ type server struct {
 }
 
 type transaction struct {
-	ID     int    `json:"id"`
-	UserID int    `json:"user_id"`
-	Name   string `json:"name"`
-	Amount int    `json:"amount"`
-	Status bool   `json:"status"`
+	ID        int    `json:"id" db:"id"`
+	Reference string `json:"reference" db:"reference"`
+	UserID    int    `json:"user_id" db:"user_id"`
+	Name      string `json:"name" db:"name"`
+	Amount    int    `json:"amount" db:"amount"`
+	Status    bool   `json:"status" db:"status"`
 }
 type UserRules struct {
 	UserID           int     `db:"user_id"`

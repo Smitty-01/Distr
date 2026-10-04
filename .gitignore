@@ -1,0 +1,7 @@
+node_modules/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+.DS_Store
